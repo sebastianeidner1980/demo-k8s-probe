@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcheck
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthcheck
+  template:
+    metadata:
+      labels:
+        app: healthcheck
+    spec:
+      containers:
+        - name: healthcheck
+          image: quay.io/seidner/healthcheck:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: healthcheck-files
+              mountPath: /tmp   # Pfad im Container, wo die Dateien liegen sollen
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            #initialDelaySeconds: Number of seconds after the container has started before liveness probe is initiated.
+            #periodSeconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1.
+            #timeoutSeconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1.
+            #successThreshold: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+            #failureThreshold: When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up. Giving up in case of liveness probe means restarting the Pod. Defaults to 3. Minimum value is 1.
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+      volumes:
+        - name: healthcheck-files
+          configMap:
+            name: healthcheck-files
+            items:
+              - key: live.txt
+                path: live.txt
+              - key: ready.txt
+                path: ready.txt
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthcheck
+spec:
+  selector:
+    app: healthcheck
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: healthcheck
+spec:
+  to:
+    kind: Service
+    name: healthcheck
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
