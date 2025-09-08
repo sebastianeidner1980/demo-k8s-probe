@@ -39,6 +39,7 @@ jobs:
 
   podman-build:
     runs-on: ubuntu-latest
+    permissions: write-all
     needs: build-test
     steps:
       # 1. Checkout
